@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>LotoCE Quant Intelligence Platform — Fases 1-3</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{ --ink:#10203A; --soft:#57687D; --line:#DCE3EA; --accent:#0F6E5C; --bad:#C1392B; --warn:#B5791F; }
+  body{font-family:ui-sans-serif,system-ui,sans-serif;background:#F2F5F8;color:var(--ink);margin:0;padding:24px;}
+  .wrap{max-width:1000px;margin:0 auto;}
+  h1{font-size:22px;} h2{font-size:15px;margin-top:28px;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin-bottom:16px;}
+  textarea{width:100%;min-height:160px;font-family:ui-monospace,monospace;font-size:12.5px;padding:10px;border:1px solid var(--line);border-radius:6px;}
+  button{background:var(--accent);color:#fff;border:none;padding:9px 16px;border-radius:6px;font-weight:600;cursor:pointer;font-size:13px;}
+  button.secondary{background:#fff;color:var(--ink);border:1px solid var(--line);}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;}
+  th,td{padding:5px 8px;border-bottom:1px solid #eee;text-align:left;}
+  .ok{color:var(--accent);font-weight:600;} .err{color:var(--bad);font-weight:600;}
+  .badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;}
+  .badge.mapped{background:#E3F2EE;color:var(--accent);}
+  .badge.unmapped{background:#FBF1DD;color:var(--warn);}
+  .alias-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eee;font-size:13px;}
+  select{padding:6px;border-radius:6px;border:1px solid var(--line);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>LotoCE Quant Intelligence Platform — Fases 1-3</h1>
+  <p style="color:var(--soft);font-size:13px;">Banco único, importação Excel, colagem manual e pré-visualização antes de gravar. Nenhum dado é descartado silenciosamente.</p>
+
+  <div class="card">
+    <h2>📋 Colar Resultados</h2>
+    <textarea id="txtColar" placeholder="Extração Manhã
+Dia 13/07/2026
+
+1° PRÊMIO
+8626
+
+2° PRÊMIO
+6871
+..."></textarea>
+    <div style="margin-top:10px;"><button onclick="prevColar()">Pré-visualizar</button></div>
+  </div>
+
+  <div class="card">
+    <h2>📥 Importar Excel</h2>
+    <input type="file" id="fileExcel" accept=".xlsx,.xls">
+    <div style="margin-top:10px;"><button onclick="prevExcel()">Pré-visualizar</button></div>
+  </div>
+
+  <div id="previewArea"></div>
+
+  <div class="card">
+    <h2>📊 Histórico</h2>
+    <button class="secondary" onclick="carregarHistorico()">Atualizar histórico</button>
+    <div id="historicoArea"></div>
+  </div>
+</div>
+
+<script>
+let ultimoPreview = null;
+let ultimoTexto = null;
+let ultimaFonte = null; // 'paste' | 'excel'
+
+async function prevColar() {
+  const texto = document.getElementById('txtColar').value;
+  if (!texto.trim()) return alert('Cole os resultados antes.');
+  const res = await fetch('/api/import/paste/preview', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ texto })
+  });
+  const data = await res.json();
+  if (data.erro) return alert(data.erro + (data.detalhe ? '\n' + data.detalhe : ''));
+  ultimoPreview = data; ultimoTexto = texto; ultimaFonte = 'paste';
+  renderPreview(data);
+}
+
+async function prevExcel() {
+  const file = document.getElementById('fileExcel').files[0];
+  if (!file) return alert('Selecione um arquivo .xlsx antes.');
+  const fd = new FormData(); fd.append('arquivo', file);
+  const res = await fetch('/api/import/excel/preview', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (data.erro) return alert(data.erro + (data.detalhe ? '\n' + data.detalhe : ''));
+  ultimoPreview = data; ultimaFonte = 'excel';
+  renderPreview(data);
+}
+
+function renderPreview(data) {
+  const el = document.getElementById('previewArea');
+  let html = `<div class="card"><h2>Pré-visualização da importação</h2>
+    <p>Registros encontrados: <b>${data.registrosEncontrados}</b> ·
+       Válidos: <b class="ok">${data.registrosValidos}</b> ·
+       Inválidos: <b class="err">${data.registrosInvalidos}</b></p>`;
+
+  if (data.sessoesNaoMapeadas && data.sessoesNaoMapeadas.length) {
+    html += `<p><b>⚠️ Sessões não mapeadas — decida antes de confirmar:</b></p>`;
+    data.sessoesNaoMapeadas.forEach(s => {
+      html += `<div class="alias-row">
+        <span>"${s.rawValue}"</span>
+        <select data-raw="${s.rawValue}">
+          <option value="">— escolher —</option>
+          <option value="MANHA">Mapear para MANHÃ</option>
+          <option value="TARDE">Mapear para TARDE</option>
+          <option value="NOITE">Mapear para NOITE</option>
+          <option value="NEW">Criar como nova sessão</option>
+          <option value="IGNORE">Ignorar estes registros</option>
+        </select>
+      </div>`;
+    });
+  }
+
+  html += `<table><thead><tr><th>Data</th><th>Sessão</th><th>Pos.</th><th>Milhar</th><th>Status</th></tr></thead><tbody>`;
+  data.linhas.slice(0, 60).forEach(l => {
+    if (l.erroEstrutura) { html += `<tr><td colspan="5" class="err">${l.erroEstrutura}</td></tr>`; return; }
+    const statusHtml = !l.valido ? `<span class="err">✕ ${l.erro}</span>`
+      : l.duplicado ? `<span style="color:var(--warn);">já existe</span>`
+      : l.sessaoStatus === 'UNMAPPED' ? `<span class="badge unmapped">sessão pendente</span>`
+      : `<span class="ok">✓${l.corrigidoComZero ? ' (zero à esquerda)' : ''}</span>`;
+    html += `<tr><td>${l.data||''}</td><td>${l.sessaoRaw||''}</td><td>${l.position||''}</td><td>${l.valorOriginal}${l.numero && l.numero!==l.valorOriginal ? ' → '+l.numero : ''}</td><td>${statusHtml}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  if (data.linhas.length > 60) html += `<p style="color:var(--soft);font-size:12px;">Mostrando 60 de ${data.linhas.length} registros.</p>`;
+
+  html += `<div style="margin-top:14px;"><button onclick="confirmarImportacao()">✅ Confirmar Importação</button></div></div>`;
+  el.innerHTML = html;
+}
+
+async function confirmarImportacao() {
+  if (ultimaFonte !== 'paste') return alert('A confirmação automática nesta interface cobre a colagem manual. Para Excel, revise a pré-visualização e me avise para eu ligar a gravação em lote.');
+  const mapeamentosSessao = {};
+  document.querySelectorAll('#previewArea select[data-raw]').forEach(sel => {
+    if (sel.value) mapeamentosSessao[sel.dataset.raw] = sel.value;
+  });
+  const faltando = (ultimoPreview.sessoesNaoMapeadas || []).filter(s => !mapeamentosSessao[s.rawValue]);
+  if (faltando.length) {
+    if (!confirm(`Ainda há sessões não decididas (${faltando.map(s=>s.rawValue).join(', ')}). Os registros dessas sessões NÃO serão gravados. Continuar mesmo assim?`)) return;
+  }
+  const res = await fetch('/api/import/paste/confirm', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ importJobId: ultimoPreview.importJobId, texto: ultimoTexto, mapeamentosSessao })
+  });
+  const data = await res.json();
+  if (data.erro) return alert(data.erro + (data.detalhe ? '\n' + data.detalhe : ''));
+  alert(`Importação concluída. Inseridos: ${data.inseridos}. Ignorados por já existirem: ${data.ignoradosPorDuplicidade}.`);
+  document.getElementById('previewArea').innerHTML = '';
+  document.getElementById('txtColar').value = '';
+  carregarHistorico();
+}
+
+async function carregarHistorico() {
+  const res = await fetch('/api/draws?limit=30');
+  const draws = await res.json();
+  const el = document.getElementById('historicoArea');
+  if (!draws.length) { el.innerHTML = '<p style="color:var(--soft);">Nenhum sorteio gravado ainda.</p>'; return; }
+  let html = '<table><thead><tr><th>Data</th><th>Sessão</th><th>Resultados (posição: milhar)</th></tr></thead><tbody>';
+  draws.forEach(d => {
+    const res = d.resultados.map(r => `${r.position}º:${r.number}`).join('  ');
+    html += `<tr><td>${new Date(d.draw_date).toLocaleDateString('pt-BR')}</td><td>${d.sessao}</td><td style="font-family:ui-monospace,monospace;">${res}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+</script>
+</body>
+</html>
