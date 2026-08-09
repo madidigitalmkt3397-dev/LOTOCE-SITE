@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LotoCE Quant Intelligence Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: {
+                dark: { 900: '#090d16', 800: '#111827', 700: '#1f2937', 600: '#374151' },
+                accent: { cyan: '#06b6d4', emerald: '#10b981', amber: '#f59e0b', rose: '#f43f5e', indigo: '#6366f1' }
+            } } }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #090d16; }
+        ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-dark-900 text-slate-100 min-h-screen flex flex-col selection:bg-cyan-500 selection:text-black">
+
+    <header class="border-b border-slate-800 bg-dark-800/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-black text-xl shadow-lg shadow-cyan-500/20">Q</div>
+                <div>
+                    <h1 class="font-bold tracking-wider text-sm sm:text-base">LOTOCE QUANT INTELLIGENCE ENGINE</h1>
+                    <p class="text-xs text-slate-400">Fases 1-3: banco, importação e histórico reais</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="tab-btn px-3 py-1.5 text-xs font-medium rounded-md transition">Dashboard</button>
+                <button onclick="switchTab('importar')" id="btn-importar" class="tab-btn px-3 py-1.5 text-xs font-medium rounded-md transition">Importar</button>
+                <button onclick="switchTab('historico')" id="btn-historico" class="tab-btn px-3 py-1.5 text-xs font-medium rounded-md transition">Histórico</button>
+                <button onclick="switchTab('agents')" id="btn-agents" class="tab-btn px-3 py-1.5 text-xs font-medium rounded-md transition">Roadmap / Agentes</button>
+                <button onclick="switchTab('lab')" id="btn-lab" class="tab-btn px-3 py-1.5 text-xs font-medium rounded-md transition">Laboratório & Backtest</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        <!-- ======================= DASHBOARD (dados reais) ======================= -->
+        <section id="tab-dashboard" class="space-y-6">
+            <div id="dashboard-aviso" class="hidden bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-lg"></div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="dashboard-stats">
+                <div class="bg-dark-800 border border-slate-800 p-4 rounded-xl"><p class="text-xs text-slate-400 uppercase">Carregando...</p></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-dark-800 border border-slate-800 p-5 rounded-xl">
+                    <h2 class="font-bold text-sm mb-1">Sorteios por sessão</h2>
+                    <p class="text-xs text-slate-400 mb-3">Contagem real de sorteios gravados, por MANHÃ/TARDE/NOITE.</p>
+                    <div class="h-56"><canvas id="chartSessoes"></canvas></div>
+                </div>
+                <div class="bg-dark-800 border border-slate-800 p-5 rounded-xl">
+                    <h2 class="font-bold text-sm mb-1">Milhares mais frequentes</h2>
+                    <p class="text-xs text-slate-400 mb-3">Contagem real no histórico gravado — não é indicação de chance futura.</p>
+                    <table class="w-full text-xs mono"><tbody id="tabela-frequencia"></tbody></table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================= IMPORTAR (real) ======================= -->
+        <section id="tab-importar" class="space-y-6 hidden">
+            <div class="bg-dark-800 border border-slate-800 p-5 rounded-xl space-y-3">
+                <h2 class="font-bold text-sm">📋 Colar Resultados</h2>
+                <textarea id="txtColar" rows="10" class="w-full bg-dark-900 border border-slate-700 rounded-lg p-3 text-xs mono text-slate-200" placeholder="Extração Manhã
+Dia 13/07/2026
+
+1° PRÊMIO
+8626
+
+2° PRÊMIO
+6871
+..."></textarea>
+                <button onclick="prevColar()" class="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs rounded-lg">Pré-visualizar</button>
+            </div>
+
+            <div class="bg-dark-800 border border-slate-800 p-5 rounded-xl space-y-3">
+                <h2 class="font-bold text-sm">📥 Importar Excel</h2>
+                <input type="file" id="fileExcel" accept=".xlsx,.xls" class="text-xs">
+                <div><button onclick="prevExcel()" class="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold text-xs rounded-lg mt-2">Pré-visualizar</button></div>
+            </div>
+
+            <div id="previewArea"></div>
+        </section>
+
+        <!-- ======================= HISTÓRICO (real) ======================= -->
+        <section id="tab-historico" class="space-y-4 hidden">
+            <div class="bg-dark-800 border border-slate-800 p-5 rounded-xl">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-bold text-sm">Histórico de sorteios</h2>
+                    <button onclick="carregarHistorico()" class="px-3 py-1.5 bg-dark-700 hover:bg-dark-600 text-xs rounded-lg">Atualizar</button>
+                </div>
+                <div class="overflow-x-auto"><table class="w-full text-xs mono"><thead>
+                    <tr class="text-slate-400 border-b border-slate-800"><th class="p-2 text-left">Data</th><th class="p-2 text-left">Sessão</th><th class="p-2 text-left">Resultados</th></tr>
+                </thead><tbody id="tabela-historico"></tbody></table></div>
+            </div>
+        </section>
+
+        <!-- ======================= ROADMAP / AGENTES (honesto: não é live) ======================= -->
+        <section id="tab-agents" class="space-y-6 hidden">
+            <div class="bg-dark-800 border border-slate-800 p-5 rounded-xl">
+                <h2 class="font-bold text-base mb-1">Roadmap de agentes especializados</h2>
+                <p class="text-xs text-slate-400">⚠️ Esta aba é descritiva — nenhum destes motores está implementado ainda. Eles fazem parte das Fases 9+ do projeto (Markov, Bayes, ML, etc.) e só vão aparecer aqui quando estiverem rodando com dados reais.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="agents-grid"></div>
+        </section>
+
+        <!-- ======================= LABORATÓRIO / BACKTEST (honesto: placeholder) ======================= -->
+        <section id="tab-lab" class="space-y-6 hidden">
+            <div class="bg-dark-800 border border-amber-700/40 p-6 rounded-xl text-center">
+                <p class="text-2xl mb-2">🚧</p>
+                <h2 class="font-bold text-sm mb-1">Ainda não implementado</h2>
+                <p class="text-xs text-slate-400 max-w-md mx-auto">
+                    Backtesting, walk-forward, motores de Markov/Bayes/Machine Learning e previsões congeladas
+                    dependem de um volume real de histórico e fazem parte das Fases 4-13 do projeto.
+                    Nada fictício é mostrado aqui — quando esses módulos existirem de verdade, aparecem nesta aba.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="border-t border-slate-800 bg-dark-800/40 py-4 text-center text-xs text-slate-500 mono">
+        LOTOCE QUANT INTELLIGENCE ENGINE — dados reais, sem previsão garantida. Sorteios são eventos aleatórios.
+    </footer>
+
+<style>
+.tab-btn { color: #cbd5e1; }
+.tab-btn:hover { background: #1f2937; }
+.tab-btn.active { background: #06b6d4; color: #000; }
+</style>
+
+<script>
+const ROADMAP_AGENTES = [
+  { nome: 'Probability Theorist', desc: 'Modela o baseline e distribuições esperadas sob aleatoriedade.' },
+  { nome: 'Statistical Scientist', desc: 'Inferência, testes de hipótese, bootstrap, controle de múltiplas comparações.' },
+  { nome: 'Stochastic Process Scientist', desc: 'Dependência temporal, memória, estacionariedade.' },
+  { nome: 'Markov Engine', desc: 'Transições de milhar/centena/dezena/dígito.' },
+  { nome: 'Time Series Engine', desc: 'Autocorrelação, sazonalidade, change points.' },
+  { nome: 'Information Theory Engine', desc: 'Entropia, informação mútua, concentração.' }
+];
+
+function switchTab(tabId) {
+  ['dashboard', 'importar', 'historico', 'agents', 'lab'].forEach(id => {
+    document.getElementById(`tab-${id}`).classList.add('hidden');
+    document.getElementById(`btn-${id}`).classList.remove('active');
+  });
+  document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+  document.getElementById(`btn-${tabId}`).classList.add('active');
+  if (tabId === 'dashboard') carregarDashboard();
+  if (tabId === 'historico') carregarHistorico();
+}
+
+// ---------------------- DASHBOARD (dados reais) ----------------------
+let chartSessoes = null;
+
+async function carregarDashboard() {
+  const res = await fetch('/api/analysis/summary');
+  const data = await res.json();
+  if (data.erro) { document.getElementById('dashboard-stats').innerHTML = `<p class="text-rose-400 text-xs">${data.erro}</p>`; return; }
+
+  const avisoEl = document.getElementById('dashboard-aviso');
+  if (data.aviso) { avisoEl.classList.remove('hidden'); avisoEl.textContent = '⚠️ ' + data.aviso; }
+  else avisoEl.classList.add('hidden');
+
+  const cards = [
+    ['Total de sorteios', data.totalSorteios],
+    ['Total de resultados', data.totalResultados],
+    ['Data mais antiga', data.dataMaisAntiga ? new Date(data.dataMaisAntiga).toLocaleDateString('pt-BR') : '—'],
+    ['Data mais recente', data.dataMaisRecente ? new Date(data.dataMaisRecente).toLocaleDateString('pt-BR') : '—']
+  ];
+  document.getElementById('dashboard-stats').innerHTML = cards.map(([l,v]) => `
+    <div class="bg-dark-800 border border-slate-800 p-4 rounded-xl">
+      <p class="text-xs text-slate-400 uppercase tracking-wider">${l}</p>
+      <p class="text-lg font-bold text-cyan-400 mt-1 mono">${v}</p>
+    </div>`).join('');
+
+  const ctx = document.getElementById('chartSessoes').getContext('2d');
+  const labels = data.porSessao.map(s => s.code);
+  const valores = data.porSessao.map(s => parseInt(s.total, 10));
+  if (chartSessoes) chartSessoes.destroy();
+  chartSessoes = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Sorteios gravados', data: valores, backgroundColor: 'rgba(6,182,212,0.5)', borderColor: '#06b6d4', borderWidth: 1 }] },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
+      scales:{ x:{ ticks:{ color:'#64748b' }, grid:{ color:'#1f2937' } }, y:{ ticks:{ color:'#64748b' }, grid:{ color:'#1f2937' }, beginAtZero:true } } }
+  });
+
+  const tbody = document.getElementById('tabela-frequencia');
+  if (!data.top10MaisFrequentes.length) {
+    tbody.innerHTML = `<tr><td class="text-slate-500 p-2">${data.aviso || 'Sem dados suficientes ainda.'}</td></tr>`;
+  } else {
+    tbody.innerHTML = data.top10MaisFrequentes.map(f => `<tr class="border-b border-slate-800/60"><td class="p-2 text-cyan-400 font-bold">${f.number}</td><td class="p-2 text-right text-slate-300">${f.freq}x</td></tr>`).join('');
+  }
+}
+
+// ---------------------- IMPORTAR (real, mesma API testada) ----------------------
+let ultimoPreview = null, ultimoTexto = null, ultimaFonte = null;
+
+async function prevColar() {
+  const texto = document.getElementById('txtColar').value;
+  if (!texto.trim()) return alert('Cole os resultados antes.');
+  const res = await fetch('/api/import/paste/preview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ texto }) });
+  const data = await res.json();
+  if (data.erro) return alert(data.erro + (data.detalhe ? '\n'+data.detalhe : ''));
+  ultimoPreview = data; ultimoTexto = texto; ultimaFonte = 'paste';
+  renderPreview(data);
+}
+
+async function prevExcel() {
+  const file = document.getElementById('fileExcel').files[0];
+  if (!file) return alert('Selecione um arquivo .xlsx antes.');
+  const fd = new FormData(); fd.append('arquivo', file);
+  const res = await fetch('/api/import/excel/preview', { method:'POST', body: fd });
+  const data = await res.json();
+  if (data.erro) return alert(data.erro + (data.detalhe ? '\n'+data.detalhe : ''));
+  ultimoPreview = data; ultimaFonte = 'excel';
+  renderPreview(data);
+}
+
+function renderPreview(data) {
+  const el = document.getElementById('previewArea');
+  let html = `<div class="bg-dark-800 border border-slate-800 p-5 rounded-xl space-y-3">
+    <h2 class="font-bold text-sm">Pré-visualização</h2>
+    <p class="text-xs">Encontrados: <b class="mono">${data.registrosEncontrados}</b> · Válidos: <b class="text-emerald-400 mono">${data.registrosValidos}</b> · Inválidos: <b class="text-rose-400 mono">${data.registrosInvalidos}</b></p>`;
+
+  if (data.sessoesNaoMapeadas && data.sessoesNaoMapeadas.length) {
+    html += `<div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 space-y-2">
+      <p class="text-xs text-amber-300 font-bold">⚠️ Sessões não mapeadas — decida antes de confirmar:</p>`;
+    data.sessoesNaoMapeadas.forEach(s => {
+      html += `<div class="flex items-center gap-2 text-xs">
+        <span class="mono">"${s.rawValue}"</span>
+        <select data-raw="${s.rawValue}" class="bg-dark-900 border border-slate-700 rounded p-1 text-xs">
+          <option value="">— escolher —</option>
+          <option value="MANHA">Mapear p/ MANHÃ</option>
+          <option value="TARDE">Mapear p/ TARDE</option>
+          <option value="NOITE">Mapear p/ NOITE</option>
+          <option value="NEW">Criar nova sessão</option>
+          <option value="IGNORE">Ignorar</option>
+        </select></div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div class="overflow-x-auto"><table class="w-full text-xs mono"><thead><tr class="text-slate-400 border-b border-slate-800">
+    <th class="p-2 text-left">Data</th><th class="p-2 text-left">Sessão</th><th class="p-2 text-left">Pos.</th><th class="p-2 text-left">Milhar</th><th class="p-2 text-left">Status</th></tr></thead><tbody>`;
+  data.linhas.slice(0, 60).forEach(l => {
+    if (l.erroEstrutura) { html += `<tr><td colspan="5" class="text-rose-400 p-2">${l.erroEstrutura}</td></tr>`; return; }
+    const status = !l.valido ? `<span class="text-rose-400">✕ ${l.erro}</span>`
+      : l.duplicado ? `<span class="text-amber-400">já existe</span>`
+      : l.sessaoStatus === 'UNMAPPED' ? `<span class="text-amber-400">sessão pendente</span>`
+      : `<span class="text-emerald-400">✓${l.corrigidoComZero ? ' (zero à esquerda)' : ''}</span>`;
+    html += `<tr class="border-b border-slate-800/60"><td class="p-2">${l.data||''}</td><td class="p-2">${l.sessaoRaw||''}</td><td class="p-2">${l.position||''}</td><td class="p-2">${l.valorOriginal}${l.numero && l.numero!==l.valorOriginal ? ' → '+l.numero : ''}</td><td class="p-2">${status}</td></tr>`;
+  });
+  html += `</tbody></table></div>`;
+  if (data.linhas.length > 60) html += `<p class="text-slate-500 text-xs">Mostrando 60 de ${data.linhas.length}.</p>`;
+  html += `<button onclick="confirmarImportacao()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs rounded-lg">✅ Confirmar Importação</button></div>`;
+  el.innerHTML = html;
+}
+
+async function confirmarImportacao() {
+  if (ultimaFonte !== 'paste') return alert('A confirmação nesta tela cobre a colagem manual. Para Excel, me avise que eu ligo a gravação em lote.');
+  const mapeamentosSessao = {};
+  document.querySelectorAll('#previewArea select[data-raw]').forEach(sel => { if (sel.value) mapeamentosSessao[sel.dataset.raw] = sel.value; });
+  const faltando = (ultimoPreview.sessoesNaoMapeadas||[]).filter(s => !mapeamentosSessao[s.rawValue]);
+  if (faltando.length && !confirm(`Sessões ainda não decididas (${faltando.map(s=>s.rawValue).join(', ')}) não serão gravadas. Continuar?`)) return;
+  const res = await fetch('/api/import/paste/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ importJobId: ultimoPreview.importJobId, texto: ultimoTexto, mapeamentosSessao }) });
+  const data = await res.json();
+  if (data.erro) return alert(data.erro);
+  alert(`Importação concluída. Inseridos: ${data.inseridos}. Ignorados (já existiam): ${data.ignoradosPorDuplicidade}.`);
+  document.getElementById('previewArea').innerHTML = '';
+  document.getElementById('txtColar').value = '';
+  switchTab('dashboard');
+}
+
+// ---------------------- HISTÓRICO (real) ----------------------
+async function carregarHistorico() {
+  const res = await fetch('/api/draws?limit=50');
+  const draws = await res.json();
+  const tbody = document.getElementById('tabela-historico');
+  if (!draws.length) { tbody.innerHTML = `<tr><td class="p-2 text-slate-500">Nenhum sorteio gravado ainda.</td></tr>`; return; }
+  tbody.innerHTML = draws.map(d => {
+    const resultados = d.resultados.map(r => `${r.position}º:${r.number}`).join('  ');
+    return `<tr class="border-b border-slate-800/60"><td class="p-2">${new Date(d.draw_date).toLocaleDateString('pt-BR')}</td><td class="p-2 text-cyan-400">${d.sessao}</td><td class="p-2">${resultados}</td></tr>`;
+  }).join('');
+}
+
+// ---------------------- ROADMAP ----------------------
+document.getElementById('agents-grid').innerHTML = ROADMAP_AGENTES.map(a => `
+  <div class="bg-dark-800 border border-slate-800 p-4 rounded-xl space-y-2">
+    <div class="flex justify-between items-start">
+      <span class="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-400 mono">PLANEJADO</span>
+    </div>
+    <h3 class="font-bold text-sm">${a.nome}</h3>
+    <p class="text-xs text-slate-400">${a.desc}</p>
+  </div>`).join('');
+
+// inicializa
+switchTab('dashboard');
+</script>
+</body>
+</html>
